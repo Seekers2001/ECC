@@ -302,6 +302,10 @@ def detect_project() -> dict:
     env_dir = os.environ.get("CLAUDE_PROJECT_DIR")
     if env_dir and os.path.isdir(env_dir):
         project_root = _git_repo_root(env_dir)
+        if not project_root:
+            project_root = os.path.realpath(env_dir)
+            if os.name == "nt":
+                project_root = project_root.replace("\\", "/")
 
     # 2. git repo root
     if not project_root:

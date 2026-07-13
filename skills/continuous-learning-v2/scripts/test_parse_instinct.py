@@ -394,6 +394,32 @@ def test_detect_project_from_env(patch_globals, monkeypatch, tmp_path):
     assert project["name"] == "my-repo"
 
 
+def test_detect_project_from_non_git_env(patch_globals, monkeypatch, tmp_path):
+    """An explicit non-git project directory should receive a stable path ID."""
+    project_dir = tmp_path / "plain-project"
+    project_dir.mkdir()
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project_dir))
+
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=1, stdout="", stderr="not a git repo"),
+    )
+
+    project = detect_project()
+
+    expected_root = str(project_dir.resolve())
+    assert project["id"] == _mod._project_hash(expected_root)
+    assert project["name"] == "plain-project"
+    assert project["root"] == expected_root
+    assert project["remote"] == ""
+
+    monkeypatch.setattr(_mod.os, "name", "nt")
+    monkeypatch.setattr(_mod.os.path, "realpath", lambda _: r"C:\Users\test\plain-project")
+    windows_project = detect_project()
+    assert windows_project["root"] == "C:/Users/test/plain-project"
+    assert windows_project["id"] == _mod._project_hash("C:/Users/test/plain-project")
+
+
 def test_detect_project_git_timeout(patch_globals, monkeypatch):
     """Git timeout should fall through to global."""
     monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)

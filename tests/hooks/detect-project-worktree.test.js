@@ -288,6 +288,51 @@ test('detect-project.sh uses the main worktree hash when no remote exists', () =
   }
 });
 
+test('detect-project.sh isolates explicit non-git project directories', () => {
+  const testDir = createTempDir();
+
+  try {
+    const homeDir = path.join(testDir, 'home');
+    const firstProject = path.join(testDir, 'first-project');
+    const secondProject = path.join(testDir, 'second-project');
+    fs.mkdirSync(homeDir, { recursive: true });
+    fs.mkdirSync(firstProject, { recursive: true });
+    fs.mkdirSync(secondProject, { recursive: true });
+
+    function detect(targetDir) {
+      const script = `
+        export HOME="${toBashPath(homeDir)}"
+        export USERPROFILE="${toBashPath(homeDir)}"
+        export CLAUDE_PROJECT_DIR="${toBashPath(targetDir)}"
+        source "${toBashPath(detectProjectPath)}" >/dev/null
+        printf "%s\\n%s\\n%s" "$PROJECT_ID" "$PROJECT_NAME" "$PROJECT_ROOT"
+      `;
+      return execFileSync('bash', ['-lc', script], {
+        cwd: targetDir,
+        timeout: 10000,
+        env: {
+          ...process.env,
+          HOME: toBashPath(homeDir),
+          USERPROFILE: toBashPath(homeDir),
+          CLAUDE_PROJECT_DIR: toBashPath(targetDir)
+        }
+      }).toString().trim().split('\n');
+    }
+
+    const [firstId, firstName, firstRoot] = detect(firstProject);
+    const [repeatId] = detect(firstProject);
+    const [secondId] = detect(secondProject);
+
+    assert.ok(firstId && firstId !== 'global', 'explicit non-git project should not use global scope');
+    assert.strictEqual(firstName, 'first-project');
+    assert.strictEqual(firstRoot, fs.realpathSync(firstProject));
+    assert.strictEqual(repeatId, firstId, 'path-derived project id should be stable');
+    assert.notStrictEqual(secondId, firstId, 'distinct non-git projects should not share an id');
+  } finally {
+    cleanupDir(testDir);
+  }
+});
+
 // ──────────────────────────────────────────────────────
 // Summary
 // ──────────────────────────────────────────────────────

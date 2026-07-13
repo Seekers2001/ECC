@@ -14,7 +14,7 @@
 #   PROJECT_ID, PROJECT_NAME, PROJECT_ROOT, PROJECT_DIR
 #
 # Detection priority:
-#   1. CLAUDE_PROJECT_DIR env var (if set)
+#   1. CLAUDE_PROJECT_DIR env var (git root or explicit directory path)
 #   2. git remote URL (hashed for uniqueness across machines)
 #   3. git repo root path (fallback, machine-specific)
 #   4. "global" (no project context detected)
@@ -105,11 +105,17 @@ _clv2_detect_project() {
     return 0
   fi
 
-  # 1. Try CLAUDE_PROJECT_DIR env var
-  if [ -n "$CLAUDE_PROJECT_DIR" ] && [ -d "$CLAUDE_PROJECT_DIR" ] && command -v git &>/dev/null; then
-    project_root=$(git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || true)
+  # 1. Try CLAUDE_PROJECT_DIR env var. An explicit non-git directory is still
+  # a project boundary; use its normalized path for a stable local identity.
+  if [ -n "$CLAUDE_PROJECT_DIR" ] && [ -d "$CLAUDE_PROJECT_DIR" ]; then
+    if command -v git &>/dev/null; then
+      project_root=$(git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || true)
+    fi
     if [ -n "$project_root" ]; then
       source_hint="env"
+    else
+      project_root=$(cd "$CLAUDE_PROJECT_DIR" 2>/dev/null && { pwd -W 2>/dev/null || pwd -P; })
+      [ -n "$project_root" ] && source_hint="env-path"
     fi
   fi
 
