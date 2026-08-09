@@ -1,0 +1,160 @@
+name: Upstream PR Conflict Monitor
+
+on:
+  schedule:
+    - cron: '30 9 * * *' # Daily at 17:30 Asia/Shanghai (UTC+8)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+concurrency:
+  group: upstream-pr-conflict-monitor
+  cancel-in-progress: true
+
+jobs:
+  inspect:
+    name: Inspect upstream PR conflicts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PRs opened from this fork
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const upstream = { owner: "affaan-m", repo: "ECC" };
+            const forkName = `${context.repo.owner}/${context.repo.repo}`;
+            const issueTitle = "Upstream ECC PR conflicts need attention";
+            const marker = "<!-- upstream-pr-conflict-monitor -->";
+
+            const sleep = (milliseconds) =>
+              new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              ...upstream,
+              state: "open",
+              per_page: 100
+            });
+
+            const forkPulls = pulls.filter(
+              (pull) => pull.head.repo?.full_name === forkName
+            );
+
+            const conflicts = [];
+            const inspected = [];
+
+            for (const pull of forkPulls) {
+              let details;
+
+              for (let attempt = 1; attempt <= 3; attempt += 1) {
+                const response = await github.rest.pulls.get({
+                  ...upstream,
+                  pull_number: pull.number
+                });
+                details = response.data;
+
+                if (details.mergeable !== null) break;
+                if (attempt < 3) await sleep(5000);
+              }
+
+              const state = details.mergeable_state || "unknown";
+              const status = {
+                number: details.number,
+                title: details.title,
+                url: details.html_url,
+                branch: details.head.ref,
+                mergeable: details.mergeable,
+                state
+              };
+              inspected.push(status);
+
+              if (details.mergeable === false || state === "dirty") {
+                conflicts.push(status);
+              }
+            }
+
+            await core.summary
+              .addHeading("Upstream ECC PR conflict monitor")
+              .addRaw(`Inspected ${inspected.length} open PR(s) from ${forkName}.\n`)
+              .addRaw(`Found ${conflicts.length} PR(s) with merge conflicts.\n`)
+              .write();
+
+            const reminderIssues = await github.paginate(
+              github.rest.issues.listForRepo,
+              {
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: "open",
+                per_page: 100
+              }
+            );
+            const reminder = reminderIssues.find(
+              (issue) => issue.title === issueTitle && issue.body?.includes(marker)
+            );
+
+            if (conflicts.length === 0) {
+              if (reminder) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: reminder.number,
+                  body: "All monitored upstream PRs are conflict-free. Closing this reminder."
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: reminder.number,
+                  state: "closed"
+                });
+              }
+
+              core.info("No upstream PR conflicts detected.");
+              return;
+            }
+
+            const rows = conflicts.map((pull) =>
+              `| [#${pull.number}](${pull.url}) | ${pull.title.replaceAll("|", "\\|")} | \`${pull.branch}\` | \`${pull.state}\` |`
+            );
+            const body = [
+              marker,
+              "# Upstream ECC PR conflicts need attention",
+              "",
+              `Last checked: ${new Date().toISOString()}`,
+              "",
+              "| PR | Title | Fork branch | Merge state |",
+              "|---|---|---|---|",
+              ...rows,
+              "",
+              "## Safe repair workflow",
+              "",
+              "For each affected branch:",
+              "",
+              "```bash",
+              "git fetch upstream main",
+              "git fetch origin <branch>",
+              "git switch <branch>",
+              "git merge upstream/main",
+              "# Resolve and test the reported conflicts, then commit and push.",
+              "```",
+              "",
+              "This monitor never resolves conflicts or pushes merge commits automatically."
+            ].join("\n");
+
+            if (reminder) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: reminder.number,
+                body
+              });
+              core.notice(`Updated conflict reminder issue #${reminder.number}.`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body
+              });
+              core.notice(`Created conflict reminder issue #${created.data.number}.`);
+            }
