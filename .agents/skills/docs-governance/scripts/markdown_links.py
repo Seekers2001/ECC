@@ -85,38 +85,23 @@ def inline_link_targets(text: str) -> list[str]:
             index += 1
             continue
         start = match.end()
-        candidate_index = index + 1
         if start < len(text) and text[start] == "<":
-            end = start + 1
-            while end < len(text):
-                if (
-                    candidate_index < len(matches)
-                    and end == matches[candidate_index].start()
-                ):
-                    index = candidate_index
-                    break
-                if text[end] == ">":
-                    targets.append(text[start : end + 1])
-                    cursor = end + 1
-                    index = candidate_index
-                    break
-                end += 1
-            else:
-                break
-            continue
+            end = text.find(">", start + 1)
+            if end != -1:
+                targets.append(text[start : end + 1])
+                cursor = end + 1
+                index += 1
+                continue
+            index += 1
+            if index < len(matches):
+                continue
+            break
         depth = 0
         quote: str | None = None
         escaped = False
-        end = start
-        while end < len(text):
-            if (
-                candidate_index < len(matches)
-                and end == matches[candidate_index].start()
-            ):
-                if quote is None:
-                    index = candidate_index
-                    break
-                candidate_index += 1
+        closed = False
+        saw_closing = False
+        for end in range(start, len(text)):
             character = text[end]
             if quote is not None:
                 if escaped:
@@ -125,23 +110,25 @@ def inline_link_targets(text: str) -> list[str]:
                     escaped = True
                 elif character == quote:
                     quote = None
-                end += 1
                 continue
             if character in {"'", '"'}:
                 quote = character
-                end += 1
                 continue
             if character == "(":
                 depth += 1
             elif character == ")":
+                saw_closing = True
                 if depth == 0:
                     targets.append(text[start:end])
                     cursor = end + 1
-                    index = candidate_index
+                    closed = True
                     break
                 depth -= 1
-            end += 1
-        else:
+        if closed:
+            index += 1
+            continue
+        index += 1
+        if not saw_closing or index >= len(matches):
             break
     return targets
 

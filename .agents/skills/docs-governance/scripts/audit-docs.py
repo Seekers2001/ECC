@@ -432,7 +432,7 @@ def check_log(
 
 def parse_adr_status(text: str) -> str | None:
     patterns = (
-        r"(?im)^(?:[-*]\s+)?(?:\*\*(?:status|\u72b6\u6001)\*\*|(?:status|\u72b6\u6001))\s*[:\uFF1A]\s*`?([a-z]+)`?\s*$",
+        r"(?im)^(?:[-*]\s+)?(?:\*\*(?:status|\u72b6\u6001)\*\*|(?:status|\u72b6\u6001))\s*[:\uFF1A]\s*`?([a-z]+)`?(?:\s+by\s+ADR-\d+)?\s*$",
         r"(?im)^##\s+(?:status|\u72b6\u6001)\s*\n+\s*`?([a-z]+)`?\s*$",
     )
     for pattern in patterns:

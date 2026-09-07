@@ -271,6 +271,17 @@ def test_artifact_scope_ignores_link_like_text_in_title(project: Path) -> None:
     assert result.returncode == 0, result.stdout
 
 
+def test_artifact_scope_accepts_link_shaped_destination_text(project: Path) -> None:
+    target = project / "guide[ref](v1).md"
+    target.write_text("# Guide\n", encoding="utf-8")
+    (project / "index.md").write_text(
+        "[plain](guide[ref](v1).md)\n[wrapped](<guide[ref](v1).md>)\n",
+        encoding="utf-8",
+    )
+    result = run_audit(project, "artifacts")
+    assert result.returncode == 0, result.stdout
+
+
 def test_artifact_scope_checks_angle_wrapped_destination_with_title(
     project: Path,
 ) -> None:
@@ -343,6 +354,19 @@ def test_adr_scope_accepts_documented_bold_status_metadata(project: Path) -> Non
     )
     (adr_dir / "0001-storage.md").write_text(
         "# ADR-0001\n\n**Status**: accepted\n", encoding="utf-8"
+    )
+    result = run_audit(project, "adr")
+    assert result.returncode == 0, result.stdout
+
+
+def test_adr_scope_accepts_superseded_status_with_successor(project: Path) -> None:
+    adr_dir = project / "docs" / "adr"
+    adr_dir.mkdir(parents=True)
+    (adr_dir / "README.md").write_text(
+        "[decision](0001-storage.md)\n", encoding="utf-8"
+    )
+    (adr_dir / "0001-storage.md").write_text(
+        "# ADR-0001\n\n**Status**: superseded by ADR-0002\n", encoding="utf-8"
     )
     result = run_audit(project, "adr")
     assert result.returncode == 0, result.stdout
