@@ -309,6 +309,17 @@ def test_artifact_scope_checks_reference_style_markdown_links(
     assert "missing-guide.md" in result.stdout
 
 
+def test_artifact_scope_checks_shortcut_reference_followed_by_colon(
+    project: Path,
+) -> None:
+    (project / "index.md").write_text(
+        "See [docs]: details\n\n[docs]: missing-guide.md\n", encoding="utf-8"
+    )
+    result = run_audit(project, "artifacts")
+    assert result.returncode == 1
+    assert "Broken Markdown link: 'index.md' -> 'missing-guide.md'" in result.stdout
+
+
 @pytest.mark.parametrize("target_line", ("  missing-guide.md", "missing-guide.md"))
 def test_artifact_scope_checks_continuation_line_reference_target(
     project: Path, target_line: str

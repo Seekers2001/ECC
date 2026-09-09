@@ -139,14 +139,20 @@ def normalize_reference_label(label: str) -> str:
 
 
 def reference_link_targets(text: str) -> list[str]:
+    definition_matches = list(REFERENCE_DEFINITION_RE.finditer(text))
     definitions = {
         normalize_reference_label(match.group("label")): match.group("target")
-        for match in REFERENCE_DEFINITION_RE.finditer(text)
+        for match in definition_matches
     }
     targets: list[str] = []
     for match in REFERENCE_USAGE_RE.finditer(text):
+        if any(
+            definition.start() <= match.start() < definition.end()
+            for definition in definition_matches
+        ):
+            continue
         following = text[match.end() : match.end() + 1]
-        if following in {"(", ":"}:
+        if following == "(":
             continue
         label = match.group("label")
         key = normalize_reference_label(label or match.group("text"))
