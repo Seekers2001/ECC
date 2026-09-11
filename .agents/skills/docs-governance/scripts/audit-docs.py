@@ -38,6 +38,9 @@ ENTRY_RE = re.compile(
 CODE_PATH_RE = re.compile(r"`([^`\n]+)`")
 TEST_ID_RE = re.compile(r"\bTEST-[A-Z0-9][A-Z0-9-]*\b")
 ADR_TARGET_RE = re.compile(r"\b(?:ADR-)?\d{3,4}-[a-z0-9-]+\.md\b", re.IGNORECASE)
+ADR_INLINE_SUCCESSOR_RE = re.compile(
+    r"(?im)^(?:[-*]\s+)?(?:\*\*(?:status|状态)\*\*|(?:status|状态))\s*[:：]\s*`?superseded`?\s+by\s+(ADR-\d{3,4})\s*$"
+)
 IGNORED_DIRS = {".git", ".governance", ".venv", "node_modules", "vendor", "__pycache__"}
 IGNORED_REFERENCE_MARKERS = ("*", "{", "}", "<", ">", "…", "...")
 GIT_TIMEOUT_SECONDS = 5
@@ -442,6 +445,16 @@ def parse_adr_status(text: str) -> str | None:
     return None
 
 
+def inline_adr_successor(text: str) -> str | None:
+    match = ADR_INLINE_SUCCESSOR_RE.search(text)
+    return match.group(1).upper() if match else None
+
+
+def adr_identifier(text: str) -> str | None:
+    match = re.search(r"(?im)^#\s+(ADR-\d{3,4})\b", text)
+    return match.group(1).upper() if match else None
+
+
 def indexed_adr_paths(
     root: Path, index: Path, index_text: str, report: Report
 ) -> set[Path]:
@@ -519,6 +532,16 @@ def check_adr_lifecycle(
             report.fail(
                 "ADR status is unsupported: "
                 f"{diagnostic(path.relative_to(root))} -> {status}"
+            )
+        successor = inline_adr_successor(text)
+        if successor and successor not in {
+            identifier
+            for source_text in sources.values()
+            if (identifier := adr_identifier(source_text)) is not None
+        }:
+            report.fail(
+                "ADR inline successor does not exist: "
+                f"{diagnostic(path.relative_to(root))} -> {successor}"
             )
         supersedes = re.search(
             r"(?ims)^##\s+Supersedes\s*\n(?P<body>.*?)(?:\n## |\Z)", text

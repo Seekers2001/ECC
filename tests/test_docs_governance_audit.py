@@ -374,13 +374,30 @@ def test_adr_scope_accepts_superseded_status_with_successor(project: Path) -> No
     adr_dir = project / "docs" / "adr"
     adr_dir.mkdir(parents=True)
     (adr_dir / "README.md").write_text(
-        "[decision](0001-storage.md)\n", encoding="utf-8"
+        "[old](0001-storage.md)\n[new](0002-storage.md)\n", encoding="utf-8"
     )
     (adr_dir / "0001-storage.md").write_text(
         "# ADR-0001\n\n**Status**: superseded by ADR-0002\n", encoding="utf-8"
     )
+    (adr_dir / "0002-storage.md").write_text(
+        "# ADR-0002\n\n**Status**: accepted\n", encoding="utf-8"
+    )
     result = run_audit(project, "adr")
     assert result.returncode == 0, result.stdout
+
+
+def test_adr_scope_rejects_missing_inline_superseded_successor(project: Path) -> None:
+    adr_dir = project / "docs" / "adr"
+    adr_dir.mkdir(parents=True)
+    (adr_dir / "README.md").write_text(
+        "[decision](0001-storage.md)\n", encoding="utf-8"
+    )
+    (adr_dir / "0001-storage.md").write_text(
+        "# ADR-0001\n\n**Status**: superseded by ADR-9999\n", encoding="utf-8"
+    )
+    result = run_audit(project, "adr")
+    assert result.returncode == 1
+    assert "ADR inline successor does not exist" in result.stdout
 
 
 def test_adr_scope_audits_common_adr_prefixed_filenames(project: Path) -> None:
