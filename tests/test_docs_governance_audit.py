@@ -400,6 +400,20 @@ def test_adr_scope_rejects_missing_inline_superseded_successor(project: Path) ->
     assert "ADR inline successor does not exist" in result.stdout
 
 
+def test_adr_scope_rejects_short_inline_superseded_successor(project: Path) -> None:
+    adr_dir = project / "docs" / "adr"
+    adr_dir.mkdir(parents=True)
+    (adr_dir / "README.md").write_text(
+        "[decision](0001-storage.md)\n", encoding="utf-8"
+    )
+    (adr_dir / "0001-storage.md").write_text(
+        "# ADR-0001\n\n**Status**: superseded by ADR-42\n", encoding="utf-8"
+    )
+    result = run_audit(project, "adr")
+    assert result.returncode == 1
+    assert "ADR has no parseable status" in result.stdout
+
+
 def test_adr_scope_audits_common_adr_prefixed_filenames(project: Path) -> None:
     adr_dir = project / "docs" / "adr"
     adr_dir.mkdir(parents=True)
@@ -562,6 +576,19 @@ def test_spine_scope_detects_recreated_root_level_deletion_zone_file(
         "# Status\n\n## Deletion Zone\n\n- `legacy_parser.py`\n", encoding="utf-8"
     )
     (project / "legacy_parser.py").write_text("# recreated\n", encoding="utf-8")
+    result = run_audit(project, "spine")
+    assert result.returncode == 1
+    assert "Deletion-zone target has been recreated" in result.stdout
+
+
+def test_spine_scope_detects_windows_path_deletion_zone_file(project: Path) -> None:
+    target = project / "subdir" / "legacy.py"
+    target.parent.mkdir()
+    target.write_text("# recreated\n", encoding="utf-8")
+    (project / "PROJECT_STATUS.md").write_text(
+        "# Status\n\n## Deletion Zone\n\n- `subdir\\\\legacy.py`\n",
+        encoding="utf-8",
+    )
     result = run_audit(project, "spine")
     assert result.returncode == 1
     assert "Deletion-zone target has been recreated" in result.stdout

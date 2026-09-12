@@ -344,8 +344,9 @@ def check_status_resurrection(
     resurrected: list[str] = []
     if match:
         for value in CODE_PATH_RE.findall(match.group("body")):
-            if plausible_deletion_path(value):
-                resolved = resolve_within_root(root, root, value)
+            normalized = value.replace("\\", "/")
+            if plausible_deletion_path(normalized):
+                resolved = resolve_within_root(root, root, normalized)
                 if resolved is not None and resolved.exists():
                     resurrected.append(value)
     if resurrected:
@@ -435,7 +436,7 @@ def check_log(
 
 def parse_adr_status(text: str) -> str | None:
     patterns = (
-        r"(?im)^(?:[-*]\s+)?(?:\*\*(?:status|\u72b6\u6001)\*\*|(?:status|\u72b6\u6001))\s*[:\uFF1A]\s*`?([a-z]+)`?(?:\s+by\s+ADR-\d+)?\s*$",
+        r"(?im)^(?:[-*]\s+)?(?:\*\*(?:status|\u72b6\u6001)\*\*|(?:status|\u72b6\u6001))\s*[:\uFF1A]\s*`?([a-z]+)`?(?:\s+by\s+ADR-\d{3,4})?\s*$",
         r"(?im)^##\s+(?:status|\u72b6\u6001)\s*\n+\s*`?([a-z]+)`?\s*$",
     )
     for pattern in patterns:
