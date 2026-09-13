@@ -535,7 +535,12 @@ def check_adr_lifecycle(
                 f"{diagnostic(path.relative_to(root))} -> {status}"
             )
         successor = inline_adr_successor(text)
-        if successor and successor not in {
+        if status == "superseded" and successor is None:
+            report.fail(
+                "Superseded ADR is missing an inline successor: "
+                f"{diagnostic(path.relative_to(root))}"
+            )
+        elif successor and successor not in {
             identifier
             for source_text in sources.values()
             if (identifier := adr_identifier(source_text)) is not None

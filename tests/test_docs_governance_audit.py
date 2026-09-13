@@ -400,6 +400,22 @@ def test_adr_scope_rejects_missing_inline_superseded_successor(project: Path) ->
     assert "ADR inline successor does not exist" in result.stdout
 
 
+def test_adr_scope_rejects_superseded_status_without_successor(project: Path) -> None:
+    adr_dir = project / "docs" / "adr"
+    adr_dir.mkdir(parents=True)
+    (adr_dir / "README.md").write_text(
+        "[decision](0001-storage.md)\n", encoding="utf-8"
+    )
+    (adr_dir / "0001-storage.md").write_text(
+        "# ADR-0001\n\n**Status**: superseded\n", encoding="utf-8"
+    )
+
+    result = run_audit(project, "adr")
+
+    assert result.returncode == 1
+    assert "Superseded ADR is missing an inline successor" in result.stdout
+
+
 def test_adr_scope_rejects_short_inline_superseded_successor(project: Path) -> None:
     adr_dir = project / "docs" / "adr"
     adr_dir.mkdir(parents=True)
