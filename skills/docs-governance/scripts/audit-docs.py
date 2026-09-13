@@ -31,7 +31,6 @@ ENTRY_RE = re.compile(
     r"^## \[(?P<date>\d{4}-\d{2}-\d{2})\]\s+(?P<type>[^|\n]+?)\s*\|\s*(?P<summary>[^\n]+)$",
     re.MULTILINE,
 )
-MARKDOWN_LINK_START_RE = re.compile(r"\[[^\]\n]*\]\(")
 CODE_PATH_RE = re.compile(r"`([^`\n]+)`")
 TEST_ID_RE = re.compile(r"\bTEST-[A-Z0-9][A-Z0-9-]*\b", re.IGNORECASE)
 EXTERNAL_URI_RE = re.compile(
@@ -124,12 +123,46 @@ def git_show(root: Path, relative: str) -> str | None:
 
 def markdown_link_targets(text: str) -> list[str]:
     targets: list[str] = []
-    for match in MARKDOWN_LINK_START_RE.finditer(text):
-        start = match.end()
+    cursor = 0
+    while cursor < len(text):
+        opening = text.find("[", cursor)
+        if opening == -1:
+            break
+        if opening > 0 and text[opening - 1] == "\\":
+            cursor = opening + 1
+            continue
+
+        depth = 0
+        escaped = False
+        start: int | None = None
+        for index in range(opening, len(text)):
+            character = text[index]
+            if character == "\n":
+                break
+            if escaped:
+                escaped = False
+                continue
+            if character == "\\":
+                escaped = True
+            elif character == "[":
+                depth += 1
+            elif character == "]":
+                depth -= 1
+                if depth == 0:
+                    if index + 1 < len(text) and text[index + 1] == "(":
+                        start = index + 2
+                    break
+        if start is None:
+            cursor = opening + 1
+            continue
+
         if start < len(text) and text[start] == "<":
             end = text.find(">", start + 1)
             if end != -1:
                 targets.append(text[start : end + 1])
+                cursor = end + 1
+                continue
+            cursor = start + 1
             continue
         depth = 0
         quote: str | None = None
@@ -152,8 +185,11 @@ def markdown_link_targets(text: str) -> list[str]:
             elif character == ")":
                 if depth == 0:
                     targets.append(text[start:end])
+                    cursor = end + 1
                     break
                 depth -= 1
+        else:
+            cursor = start + 1
     return targets
 
 
