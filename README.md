@@ -888,45 +888,7 @@ Stable graduation of the 2.0 line: the control-pane substrate (session adapters 
 See the full changelog in [Releases](https://github.com/affaan-m/ECC/releases).
 </details>
 
-## Why Choose ECC?
-
-| Without a system                                        | With ECC                                                              |
-| ------------------------------------------------------- | --------------------------------------------------------------------- |
-| Plans disappear into chat history                       | Plans become editable artifacts before implementation starts          |
-| "Please use TDD" is an instruction the model may forget | TDD becomes a gated RED -> GREEN -> REFACTOR workflow with evidence   |
-| The same context writes and reviews the code            | A fresh-context reviewer looks for regressions and blind spots        |
-| Memory means saving an enormous transcript              | Sessions are distilled into summaries, instincts, and reusable skills |
-| Quality checks depend on reminders                      | Hooks can enforce deterministic checks outside the prompt             |
-| Agent configuration is trusted by default               | AgentShield scans the harness itself as an attack surface             |
-
-### TDD: Test-Driven Development
-
-```text
-/ecc:plan "Add usage-based billing alerts"
-  -> confirm or edit the plan
-  -> activate tdd-workflow
-  -> capture RED evidence before implementation
-  -> implement until GREEN
-  -> review from fresh context
-  -> fix findings with regression tests
-  -> verify build, lint, types, and tests
-```
-
-A result is not just code. It's a trail of evidence: the plan, the failing test, the passing test, the review findings, and the final verification.
-
-### Skills keep the context focused
-
-Rules, skills, agents, and hooks solve different problems. Keeping those jobs separate is how ECC adds capability without dumping the entire repository into every session.
-
-| Concept | What it does | Context behavior |
-|---|---|---|
-| Skills | Reusable workflows such as TDD, security review, or deep research | Loaded when the task needs them |
-| Agents | Scoped workers with their own context and tool permissions | Isolate planning, implementation, and review |
-| Rules | Durable project or language standards | Always loaded, so install them selectively |
-| Hooks | Scripts triggered by harness events | Run outside the model context |
-| Instincts | Patterns learned from real sessions with confidence scores | Recalled when relevant |
-
-### Share context between harnesses
+## Share context between harnesses
 
 ECC's Memory Vault gives Claude, Codex, Hermes, OpenClaw, Kimi, and other harnesses one local, inspectable Markdown format for durable context and handoffs. Project and team memories live under `.ecc/memory/`; user memories live under `~/.ecc/memory/`.
 
