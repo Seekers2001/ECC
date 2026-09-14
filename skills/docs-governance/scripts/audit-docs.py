@@ -128,7 +128,12 @@ def markdown_link_targets(text: str) -> list[str]:
         opening = text.find("[", cursor)
         if opening == -1:
             break
-        if opening > 0 and text[opening - 1] == "\\":
+        preceding_backslashes = 0
+        for index in range(opening - 1, -1, -1):
+            if text[index] != "\\":
+                break
+            preceding_backslashes += 1
+        if preceding_backslashes % 2:
             cursor = opening + 1
             continue
 
